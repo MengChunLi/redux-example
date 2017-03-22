@@ -5,7 +5,7 @@ module.exports = {
   devtool: 'eval-source-map',
   entry: [
     // 'webpack-dev-server/client?http://localhost:3000',
-    path.join(__dirname, 'todoListExtract.js')
+    path.join(__dirname, 'todoListExtractContainer.js')
   ],
   output: {
     path: path.join(__dirname, '/dist/'),
