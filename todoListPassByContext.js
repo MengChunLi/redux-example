@@ -1,8 +1,7 @@
 /**
- * Root: TodoApp 包含所有Container，這裡先不處理store
- * 分離Container和Component
- * Container負責取得store data和dispatch事件邏輯，傳props給Component
- * Component接受props單純做presentation，通常是function component
+ * Root: 透過TodoApp把store傳遞下去，卻發生每個Container都要透過this.props.store取得並往下傳遞，相當麻煩
+ * 所以這裡透過Context的方法，可以繞過中間經過的元件(例如這裡的TodoApp和Footer)，直達裡面某個你想要傳遞的Container(就像蟲洞一樣!)
+ * But!!!Context造成資料流不明確，並且產生global variable，使用時須注意。
  */
 const { createStore, combineReducers } = require('redux');
 const ReactDOM = require('react-dom');
@@ -50,44 +49,30 @@ const todoApp = combineReducers({
   todos,
   visibilityFilter
 })
-const store = createStore(todoApp);
-
-//component
-const AddTodoComp = ({ onClick }) => {
-  let input;
-  return <div>
-    <input type="text" ref={(node) => input = node}/>
-    <button onClick={() => {onClick(input); input.value = '';}}>ADD</button>
-  </div>
-};
 
 //Container
 let nextTodoId = 0;
-class AddTodo extends Component {
-  componentDidMount() {
-    this.unsubscribe = store.subscribe(() => {
-      this.forceUpdate()
-    })
-  }
-  componentWillUnMount() {
-    this.unsubscribe()
-  }
-  render() {
-    const props = this.props;
-    const state = store.getState();
-    return (
-      <div>
-      <AddTodoComp onClick={ input => 
-        store.dispatch({
+const AddTodo = (props, { store }) => {
+  const state = store.getState();
+  let input;
+  return (
+    <div>
+      <input type="text" ref={(node) => input = node}/>
+      <button onClick={
+        () =>  { store.dispatch({
           type: 'ADD_TODO',
           id: nextTodoId++,
           text: input.value
-        })
-      } />
-      </div>
-    )
-  }
+        });
+        input.value = '';}
+      }>ADD</button>
+    </div>
+  )
 };
+//必須宣告PropTypes不然抓不到context
+AddTodo.contextTypes = {
+  store: React.PropTypes.object
+}
 const Todo = ({ text, completed, onToggleClick }) => (
   <li
     onClick={onToggleClick}
@@ -100,6 +85,7 @@ const Todo = ({ text, completed, onToggleClick }) => (
 //Container
 class VisibleTodoList extends Component {
   componentDidMount() {
+    const { store } = this.context;
     this.unsubscribe = store.subscribe(() => {
       this.forceUpdate()
     })
@@ -109,6 +95,7 @@ class VisibleTodoList extends Component {
   }
   render() {
     const props = this.props;
+    const { store } = this.context;
     const state = store.getState();
     const visibilityTodos = filterTodos(state.visibilityFilter, state.todos);
     return (
@@ -123,6 +110,9 @@ class VisibleTodoList extends Component {
       </ul>
     );
   }
+}
+VisibleTodoList.contextTypes = {
+  store: React.PropTypes.object
 }
 
 const filterTodos = (type, todos) => {
@@ -151,6 +141,7 @@ const Link = ({ active, onFilterClick, children }) => {
 //Container
 class FilterLink extends Component {
   componentDidMount() {
+    const { store } = this.context;
     this.unsubscribe = store.subscribe(() => {
       this.forceUpdate()
     })
@@ -160,6 +151,7 @@ class FilterLink extends Component {
   }
   render() {
     const props = this.props;
+    const { store } = this.context;
     const state = store.getState();
     return <div>
     <Link 
@@ -169,6 +161,9 @@ class FilterLink extends Component {
       filter: props.filter
     })}>{ props.children }</Link></div>
   }
+}
+FilterLink.contextTypes = {
+  store: React.PropTypes.object
 }
 
 //Container
@@ -199,4 +194,22 @@ const TodoApp = () => (
   </div>
 )
 
-ReactDOM.render(<TodoApp />, document.getElementById('root'));
+class Provider extends Component {
+  getChildContext() {
+    return {
+      store: this.props.store
+    }
+  }
+  render() {
+    return this.props.children
+  }
+}
+Provider.childContextTypes = {
+  store: React.PropTypes.object
+}
+
+ReactDOM.render(
+  <Provider store={createStore(todoApp)}>
+    <TodoApp />
+  </Provider>,
+  document.getElementById('root'));
