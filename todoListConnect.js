@@ -134,33 +134,25 @@ const Link = ({ active, onFilterClick, children }) => {
   )
 }
 
-//Container
-class FilterLink extends Component {
-  componentDidMount() {
-    const { store } = this.context;
-    this.unsubscribe = store.subscribe(() => {
-      this.forceUpdate()
-    })
-  }
-  componentWillUnMount() {
-    this.unsubscribe()
-  }
-  render() {
-    const props = this.props;
-    const { store } = this.context;
-    const state = store.getState();
-    return <div>
-    <Link 
-    active={ props.filter === state.visibilityFilter }
-    onFilterClick={filter => store.dispatch({
-      type: 'SET_VISIBILITY_FILTER',
-      filter: props.filter
-    })}>{ props.children }</Link></div>
+//第二個參數傳props
+const mapStateToPropsLink = (state, ownProps) => {
+  return {
+    active: ownProps.filter === state.visibilityFilter
   }
 }
-FilterLink.contextTypes = {
-  store: React.PropTypes.object
+
+const mapDispatchToPropsLink = (dispatch, ownProps) => {
+  return {
+    onFilterClick: () => {
+      dispatch({
+        type: 'SET_VISIBILITY_FILTER',
+        filter: ownProps.filter
+      })
+    }
+  }
 }
+
+const FilterLink = connect(mapStateToPropsLink, mapDispatchToPropsLink)(Link);
 
 //Container
 const Footer = () => (
